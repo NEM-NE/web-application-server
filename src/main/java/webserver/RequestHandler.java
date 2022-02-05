@@ -30,6 +30,7 @@ public class RequestHandler extends Thread {
     private String requestBody;
     private String method;
     private int contentLength;
+    private Map<String, String> cookie = Maps.newHashMap();
 
     public RequestHandler(Socket connectionSocket) {
         this.connection = connectionSocket;
@@ -106,6 +107,13 @@ public class RequestHandler extends Thread {
         while(!line.equals("")){
             if(line.contains("Content-Length")) {
                 contentLength = Integer.parseInt(line.substring(16, line.length()));
+            }else if(line.contains("Cookie")){
+                String[] cookies = line.substring(8, line.length()).split("=");
+                for(int i = 0; i < cookies.length; i+=2){
+                    String key = cookies[i];
+                    String value = cookies[i+1];
+                    cookie.put(key, value);
+                }
             }
             line = br.readLine();
         }
@@ -145,7 +153,6 @@ public class RequestHandler extends Thread {
         String route = parseURL(paths);
 
         byte[] body = { 10, 10 };
-
         //controller
         switch (route){
             case "/":
@@ -160,6 +167,17 @@ public class RequestHandler extends Thread {
                 Map<String, String> attrMap = Maps.newHashMap();
                 attrMap.put("Location", "http://localhost:8080/index.html");
                 response302Header(dos, 0, attrMap);
+                break;
+            case "/user/list":
+                String value = cookie.get("logined");
+                attrMap = Maps.newHashMap();
+                if(value == null || value.equals("false")){
+                    attrMap.put("Location", "http://localhost:8080/index.html");
+                    response302Header(dos, 0, attrMap);
+                }else {
+                    attrMap.put("Location", "http://localhost:8080/user/list.html");
+                    response302Header(dos, 0, attrMap);
+                }
                 break;
             case "/user/login":
                 queryMap = HttpRequestUtils.parseQueryString(requestBody);
