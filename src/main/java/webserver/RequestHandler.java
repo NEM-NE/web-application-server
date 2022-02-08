@@ -3,9 +3,13 @@ package webserver;
 import java.io.*;
 import java.net.Socket;
 import java.nio.file.Files;
+import java.util.Map;
 
+import model.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static util.HttpRequestUtils.*;
 
 public class RequestHandler extends Thread {
     private static final Logger log = LoggerFactory.getLogger(RequestHandler.class);
@@ -36,10 +40,25 @@ public class RequestHandler extends Thread {
                 log.debug("HEADER: {}", line);
             }
 
-            DataOutputStream dos = new DataOutputStream(out);
-            byte[] body = Files.readAllBytes(new File("./webapp" + tokens[1]).toPath());
-            response200Header(dos, body.length);
-            responseBody(dos, body);
+            String url = tokens[1];
+            if(url.startsWith("/user/create")){
+                String[] parseUrl = url.split("\\?");
+                String queryString = parseUrl[1];
+                Map<String, String> queryMap = parseQueryString(queryString);
+                User user =
+                        new User(
+                                queryMap.get("userId"),
+                                queryMap.get("password"),
+                                queryMap.get("name"),
+                                queryMap.get("email")
+                        );
+                log.debug("User: {}", user);
+            }else {
+                DataOutputStream dos = new DataOutputStream(out);
+                byte[] body = Files.readAllBytes(new File("./webapp" + tokens[1]).toPath());
+                response200Header(dos, body.length);
+                responseBody(dos, body);
+            }
         } catch (IOException e) {
             log.error(e.getMessage());
         }
