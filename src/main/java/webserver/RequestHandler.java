@@ -8,6 +8,7 @@ import java.util.Map;
 import model.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import util.IOUtils;
 
 import static util.HttpRequestUtils.*;
 
@@ -34,17 +35,19 @@ public class RequestHandler extends Thread {
             }
 
             String[] tokens = line.split(" ");
-
+            int contentLength = 0;
             while(!line.equals("")){
                 line = br.readLine();
                 log.debug("HEADER: {}", line);
+                if(line.contains("Content-Length")){
+                    contentLength = getContentLength(line);
+                }
             }
 
             String url = tokens[1];
-            if(url.startsWith("/user/create")){
-                String[] parseUrl = url.split("\\?");
-                String queryString = parseUrl[1];
-                Map<String, String> queryMap = parseQueryString(queryString);
+            if("/user/create".equals(url)){
+                String body = IOUtils.readData(br, contentLength);
+                Map<String, String> queryMap = parseQueryString(body);
                 User user =
                         new User(
                                 queryMap.get("userId"),
@@ -82,5 +85,10 @@ public class RequestHandler extends Thread {
         } catch (IOException e) {
             log.error(e.getMessage());
         }
+    }
+
+    private int getContentLength(String line) {
+        String[] headerTokens = line.split(":");
+        return Integer.parseInt(headerTokens[1].trim());
     }
 }
