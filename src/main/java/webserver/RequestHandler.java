@@ -56,12 +56,25 @@ public class RequestHandler extends Thread {
                                 queryMap.get("email")
                         );
                 log.debug("User: {}", user);
+                url = "/index.html";
+                DataOutputStream dos = new DataOutputStream(out);
+                response302Header(dos, url);
             }else {
                 DataOutputStream dos = new DataOutputStream(out);
-                byte[] body = Files.readAllBytes(new File("./webapp" + tokens[1]).toPath());
+                byte[] body = Files.readAllBytes(new File("./webapp" + url).toPath());
                 response200Header(dos, body.length);
                 responseBody(dos, body);
             }
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
+    }
+
+    private void response302Header(DataOutputStream dos, String url) {
+        try {
+            dos.writeBytes("HTTP/1.1 302 Found \r\n");
+            dos.writeBytes("Location: " + url + "\r\n");
+            dos.writeBytes("\r\n");
         } catch (IOException e) {
             log.error(e.getMessage());
         }
