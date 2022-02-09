@@ -2,7 +2,9 @@ package webserver;
 
 import java.io.*;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.Collection;
 import java.util.Map;
 
 import db.DataBase;
@@ -37,12 +39,15 @@ public class RequestHandler extends Thread {
             }
 
             String[] tokens = line.split(" ");
+            boolean logined = false;
             int contentLength = 0;
             while(!line.equals("")){
                 line = br.readLine();
                 log.debug("HEADER: {}", line);
                 if(line.contains("Content-Length")){
                     contentLength = getContentLength(line);
+                }else if(line.contains("Cookie")) {
+                    logined = isLogin(line);
                 }
             }
 
@@ -76,12 +81,43 @@ public class RequestHandler extends Thread {
                 }else {
                     responseResource(out, "/user/login_failed.html");
                 }
+            }else if("/user/list".equals(url)) {
+                if(!logined){
+                    responseResource(out, "/user/login.html");
+                    return;
+                }
+
+                Collection<User> users = DataBase.findAll();
+                StringBuilder sb = new StringBuilder();
+                sb.append("<table border='1'>");
+                for(User user : users){
+                    sb.append("<tr>");
+                    sb.append("<td>").append(user.getUserId()).append("</td>");
+                    sb.append("<td>").append(user.getEmail()).append("</td>");
+                    sb.append("<td>").append(user.getName()).append("</td>");
+                    sb.append("</tr>");
+                }
+                sb.append("</table>");
+                byte[] body = sb.toString().getBytes();
+                DataOutputStream dos = new DataOutputStream(out);
+                response200Header(dos, body.length);
+                responseBody(dos, body);
             }else {
                 responseResource(out, url);
             }
         } catch (IOException e) {
             log.error(e.getMessage());
         }
+    }
+
+    private boolean isLogin(String line){
+        String[] headerTokens = line.split(":");
+        Map<String, String> cookies = HttpRequestUtils.parseCookies(headerTokens[1].trim());
+        String value = cookies.get("logined");
+        if(value == null){
+            return false;
+        }
+        return Boolean.parseBoolean(value);
     }
 
     private void responseResource(OutputStream out, String url) {
