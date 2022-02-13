@@ -3,6 +3,7 @@ package http;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import util.HttpRequestUtils;
+import util.IOUtils;
 import webserver.RequestHandler;
 
 import java.io.BufferedReader;
@@ -47,7 +48,6 @@ public class HttpRequest {
 
                 header.put(attrName, attrValue);
             }
-
             if(getMethod().equals("POST")) setBody();
         } catch (IOException e) {
             log.error(e.getMessage());
@@ -56,7 +56,8 @@ public class HttpRequest {
 
     private void setBody() {
         try {
-            String line = br.readLine();
+            String line = IOUtils.readData(br, Integer.parseInt(header.get("Content-Length")));
+            log.debug("line {}", line);
             this.body = (HashMap<String, String>) HttpRequestUtils.parseQueryString(line);
         } catch (IOException e) {
             log.error(e.getMessage());
