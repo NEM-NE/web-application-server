@@ -8,6 +8,7 @@ import java.util.Collection;
 import java.util.Map;
 
 import db.DataBase;
+import http.HttpRequest;
 import model.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,37 +31,17 @@ public class RequestHandler extends Thread {
                 connection.getPort());
 
         try (InputStream in = connection.getInputStream(); OutputStream out = connection.getOutputStream()) {
-            BufferedReader br = new BufferedReader(new InputStreamReader(in, "UTF-8"));
-            String line = br.readLine();
-            log.debug("request : {}", line);
+            HttpRequest request = new HttpRequest(in);
 
-            if(line == null){
-                return;
-            }
-
-            String[] tokens = line.split(" ");
-            boolean logined = false;
-            int contentLength = 0;
-            while(!line.equals("")){
-                line = br.readLine();
-                log.debug("HEADER: {}", line);
-                if(line.contains("Content-Length")){
-                    contentLength = getContentLength(line);
-                }else if(line.contains("Cookie")) {
-                    logined = isLogin(line);
-                }
-            }
-
-            String url = tokens[1];
+            String url = request.getPath();
+            url = "/".equals(url) ? "/index.html" : url;
             if("/user/create".equals(url)){
-                String body = IOUtils.readData(br, contentLength);
-                Map<String, String> queryMap = parseQueryString(body);
                 User user =
                         new User(
-                                queryMap.get("userId"),
-                                queryMap.get("password"),
-                                queryMap.get("name"),
-                                queryMap.get("email")
+                                request.getParameter("userId"),
+                                request.getParameter("password"),
+                                request.getParameter("name"),
+                                request.getParameter("email")
                         );
                 log.debug("User: {}", user);
                 DataBase.addUser(user);
@@ -72,22 +53,20 @@ public class RequestHandler extends Thread {
                 response200CssHeader(dos, body.length);
                 responseBody(dos, body);
             }else if("/user/login".equals(url)){
-                String body = IOUtils.readData(br, contentLength);
-                Map<String, String> params = HttpRequestUtils.parseQueryString(body);
-                User user = DataBase.findUserById(params.get("userId"));
+                User user = DataBase.findUserById(request.getParameter("userId"));
                 if(user == null){
                     responseResource(out, "/user/login_failed.html");
                     return;
                 }
 
-                if(user.getPassword().equals(params.get("password"))) {
+                if(user.getPassword().equals(request.getParameter("password"))) {
                     DataOutputStream dos = new DataOutputStream(out);
                     response302LoginSuccessHeader(dos);
                 }else {
                     responseResource(out, "/user/login_failed.html");
                 }
             }else if("/user/list".equals(url)) {
-                if(!logined){
+                if(!isLogin(request.getHeader("Cookie"))){
                     responseResource(out, "/user/login.html");
                     return;
                 }
